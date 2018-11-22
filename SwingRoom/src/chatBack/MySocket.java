@@ -59,6 +59,13 @@ public class MySocket {
         }
     }
     
+    public void printStringWithColor(String text) {
+        try {
+            writer.println(text);
+        } catch (Exception e) {
+        }
+    }
+    
     
     public void closeReader() {
         try {

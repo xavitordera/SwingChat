@@ -26,7 +26,7 @@ public class ChatClient {
     
     
     
-    public static void main(String[] args) {
+    public void startListening(String[] args) {
         final MySocket socket = new MySocket(args[0], Integer.parseInt(args[1]));
         final String nick = args[2];
         

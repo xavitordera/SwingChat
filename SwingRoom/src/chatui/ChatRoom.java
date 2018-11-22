@@ -11,6 +11,8 @@ import chatBack.MySocket;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import javax.swing.*;
 
 
@@ -22,7 +24,7 @@ public class ChatRoom {
     
     static String      appName     = "SwingRoom v0.1";
     ChatRoom    chatRoom;
-    static JFrame      newFrame    = new JFrame(appName);
+    static JFrame      newFrame    = new JFrame();
     static JButton     sendMessage;
     static JTextField  messageBox;
     static JTextArea   chatBox;
@@ -30,6 +32,8 @@ public class ChatRoom {
     static JTextField  hostChooser;
     static JTextField  usernameChooser;
     static JFrame      preFrame;
+    
+    Color clientcolor;
     
     
     
@@ -100,6 +104,8 @@ public class ChatRoom {
     }
 
     public void display() {
+        newFrame = new JFrame(username);
+        
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BorderLayout());
 
@@ -143,7 +149,11 @@ public class ChatRoom {
         newFrame.setSize(470, 300);
         newFrame.setVisible(true);
         newFrame.setLocationRelativeTo(null);
+        
+        startListening();
     }
+    
+    
 
     class SendMessageButtonListener implements ActionListener {
         public void actionPerformed(ActionEvent event) {
@@ -153,16 +163,17 @@ public class ChatRoom {
                 chatBox.setText("Cleared all messages\n");
                 messageBox.setText("");
             } else {
+                
                 chatBox.append("<" + username + ">:  " + messageBox.getText()
                         + "\n");
+                socket.printString("<" + username + ">:" + messageBox.getText());
                 messageBox.setText("");
-                socket.printString(username + "> " + messageBox.getText());
             }
             messageBox.requestFocusInWindow();
         }
     }
 
-    String  username;
+    String username;
     String host;
     String port;
 
@@ -192,6 +203,22 @@ public class ChatRoom {
     private void createClientSocket(String host, String port) {
         int portInt = Integer.parseInt(port);
         socket = new MySocket(host, portInt);
+        socket.printString(username);
+    }
+    
+    void startListening(){
+        new Thread(){
+            public void run() {
+                String line;
+                while((line = socket.readString()) != null){
+                    chatBox.append( line + "\n");
+                }
+                System.out.println("Client disconnected...");
+                socket.closeReader();
+                socket.closeSocket();
+                System.exit(0);
+            }
+        }.start();
     }
     
 }

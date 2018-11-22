@@ -31,6 +31,11 @@ public class ChatServer {
             final Collection<MySocket> collection = dictionary.values();
             
             System.out.println("New user "+ nick);
+            for(MySocket s:collection){
+                if(s != socket){
+                    s.printString(nick + " joined the room, show him some love");
+                }
+            }
             
             new Thread(){
                 public void run() {
@@ -42,6 +47,14 @@ public class ChatServer {
                             }
                         }
                     }
+                    
+                    for(MySocket s:collection){
+                        if(s != socket){
+                            s.printString(nick + " left the room");
+                        }
+                    }
+                    System.out.println(nick + " disconnected");
+                    
                     socket.closeWriter();
                     socket.closeReader();
                     socket.closeSocket();
