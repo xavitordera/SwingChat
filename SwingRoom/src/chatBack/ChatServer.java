@@ -20,7 +20,18 @@ import java.util.logging.Logger;
  */
 public class ChatServer {
      public static void main(String[] args) {
-        final MyServerSocket serverSocket = new MyServerSocket(Integer.parseInt(args[0]));
+        if (args.isEmpty() || args == null) {
+            System.out.println("Looks like you haven't entered a port correctly");
+            return;
+        }
+        int port = -1
+        try {
+            port = Integer.parseInt(args[0]);
+        } catch (Exception ex) {
+             System.out.println("Looks like you haven't entered a port correctly");
+             return;
+        }
+        final MyServerSocket serverSocket = new MyServerSocket(port);
         final ConcurrentHashMap<String, MySocket> dictionary;
         dictionary = new ConcurrentHashMap<>();
         

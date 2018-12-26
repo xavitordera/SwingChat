@@ -23,9 +23,9 @@ import javax.swing.*;
 public class ChatRoom {
     
     static String      appName     = "SwingRoom v0.1";
-    ChatRoom    chatRoom;
+    ChatRoom           chatRoom;
     static JFrame      newFrame    = new JFrame();
-    static JButton     sendMessage;
+    static JButton     sendMessageButton;
     static JTextField  messageBox;
     static JTextArea   chatBox;
     static JTextField  portChooser;
@@ -33,9 +33,7 @@ public class ChatRoom {
     static JTextField  usernameChooser;
     static JFrame      preFrame;
     
-    Color clientcolor;
-    
-    
+    HashMap<String, Color> clientColors = new HashMap<String, Color>();
     
     static MySocket socket;
     
@@ -60,14 +58,13 @@ public class ChatRoom {
             }
         });
     }
-    
-    private static void createAndShowGUI() {
-        
-    }
 
     public void preDisplay() {
         newFrame.setVisible(false);
         preFrame = new JFrame(appName);
+        JPanel prePanel = new JPanel(new GridBagLayout());
+
+        // form
         usernameChooser = new JTextField(15);
         JLabel chooseUsernameLabel = new JLabel("Pick a username:");
         hostChooser = new JTextField(30);
@@ -76,28 +73,26 @@ public class ChatRoom {
         JLabel choosePortLabel = new JLabel("Port:");
         JButton enterServer = new JButton("Enter Chat Server");
         enterServer.addActionListener(new EnterServerButtonListener());
-        JPanel prePanel = new JPanel(new GridBagLayout());
-        
-        
-        GridBagConstraints preRight = new GridBagConstraints();
-        preRight.insets = new Insets(0, 0, 0, 10);
-        preRight.anchor = GridBagConstraints.EAST;
-        GridBagConstraints preLeft = new GridBagConstraints();
-        preLeft.anchor = GridBagConstraints.WEST;
-        preLeft.insets = new Insets(0, 10, 0, 10);
-        preRight.weightx = 2.0;
-        preRight.fill = GridBagConstraints.HORIZONTAL;
-        preRight.gridwidth = GridBagConstraints.REMAINDER;
 
-        prePanel.add(chooseUsernameLabel, preLeft);
-        prePanel.add(usernameChooser, preRight);
-        prePanel.add(chooseHostLabel, preLeft);
-        prePanel.add(hostChooser, preRight);
-        prePanel.add(choosePortLabel, preLeft);
-        prePanel.add(portChooser, preRight);
+        GridBagConstraints preRightConstraints = new GridBagConstraints();
+        preRightConstraints.insets = new Insets(0, 0, 0, 10);
+        preRightConstraints.anchor = GridBagConstraints.EAST;
+        GridBagConstraints preLeftConstraints = new GridBagConstraints();
+        preLeftConstraints.anchor = GridBagConstraints.WEST;
+        preLeftConstraints.insets = new Insets(0, 10, 0, 10);
+        preRightConstraints.weightx = 2.0;
+        preRightConstraints.fill = GridBagConstraints.HORIZONTAL;
+        preRightConstraints.gridwidth = GridBagConstraints.REMAINDER;
+
+        prePanel.add(chooseUsernameLabel, preLeftConstraints);
+        prePanel.add(usernameChooser, preRightConstraints);
+        prePanel.add(chooseHostLabel, preLeftConstraints);
+        prePanel.add(hostChooser, preRightConstraints);
+        prePanel.add(choosePortLabel, preLeftConstraints);
+        prePanel.add(portChooser, preRightConstraints);
         preFrame.add(BorderLayout.CENTER, prePanel);
         preFrame.add(BorderLayout.SOUTH, enterServer);
-        preFrame.setSize(300, 300);
+        preFrame.setSize(400, 400);
         preFrame.setVisible(true);
         preFrame.setLocationRelativeTo(null);
         
@@ -116,8 +111,8 @@ public class ChatRoom {
         messageBox = new JTextField(30);
         messageBox.requestFocusInWindow();
 
-        sendMessage = new JButton("Send Message");
-        sendMessage.addActionListener(new SendMessageButtonListener());
+        sendMessageButton = new JButton("Send Message");
+        sendMessageButton.addActionListener(new SendMessageButtonListener());
 
         chatBox = new JTextArea();
         chatBox.setEditable(false);
@@ -140,7 +135,7 @@ public class ChatRoom {
         right.weighty = 1.0D;
 
         southPanel.add(messageBox, left);
-        southPanel.add(sendMessage, right);
+        southPanel.add(sendMessageButton, right);
 
         mainPanel.add(BorderLayout.SOUTH, southPanel);
 
@@ -149,8 +144,6 @@ public class ChatRoom {
         newFrame.setSize(470, 300);
         newFrame.setVisible(true);
         newFrame.setLocationRelativeTo(null);
-        
-        startListening();
     }
     
     
@@ -163,10 +156,10 @@ public class ChatRoom {
                 chatBox.setText("Cleared all messages\n");
                 messageBox.setText("");
             } else {
-                
-                chatBox.append("<" + username + ">:  " + messageBox.getText()
+                String newChatLine = "<" + username + ">:  " + messageBox.getText(); 
+                chatBox.append(newChatLine
                         + "\n");
-                socket.printString("<" + username + ">:" + messageBox.getText());
+                socket.printString(newChatLine);
                 messageBox.setText("");
             }
             messageBox.requestFocusInWindow();
@@ -185,17 +178,16 @@ public class ChatRoom {
             port = portChooser.getText();
             
             if (username.length() < 1 || host.length() < 1 || port.length() < 1) {
-                System.out.println("No!");
+                popUpErrorMessage("Please fill in the required fields")
             } else {
                 try {
                     createClientSocket(host, port);
                     preFrame.setVisible(false);
                     display();
+                    startListenning();
                 } catch (Exception e) {
-                    System.out.println("hey write a number mdfk");
+                    popUpErrorMessage("Please enter the host and the port in the correct format")
                 }
-                
-                
             }
         }
     }
@@ -206,19 +198,66 @@ public class ChatRoom {
         socket.printString(username);
     }
     
-    void startListening(){
+    private void startListenning(){
         new Thread(){
             public void run() {
                 String line;
                 while((line = socket.readString()) != null){
-                    chatBox.append( line + "\n");
+                    appendNewMessage(line);
                 }
-                System.out.println("Client disconnected...");
                 socket.closeReader();
                 socket.closeSocket();
                 System.exit(0);
             }
         }.start();
     }
+
+    void popUpErrorMessage(String message) {
+        JOptionPane.showMessageDialog(new JFrame(), message, "Dialog",
+        JOptionPane.ERROR_MESSAGE);
+    }
+
+    private void appendNewMessage(String line) {
+        String nick = getNick(line);
+        if (!nick.isEmpty() && nick != null) {
+            Color clientColor = clientColors.get(nick);
+            if (clientColor != null) {
+                // existing client messages
+                printMessageWithColor(line + "\n", clientColor);
+            } else if (clientColor == null && nick != username) {
+                // new client messages
+                clientColor = getRandomColor();
+                clientsColor.set(nick, clientColor);
+                printMessageWithColor(line + "\n", clientColor);
+            } else {
+                // own messages
+                chatBox.append( line + "\n");        
+            }
+        } else {
+            // server messages
+            chatBox.append( line + "\n");        
+        }
+    }
     
+    private String getNick(String message) {
+        String nick = "";
+        if (message != null)
+            nick = message.split("<")[1].split(">")[0];
+        return nick;
+    }
+
+    private void printMessageWithColor(String message, Color color) {
+        chatBox.setForeground(color);
+        chatBox.append(message + "\n")
+        chatBox.setForeground(null);
+    }
+
+    Random rand = new Random();
+    private Color getRandomColor() {
+        float r = rand.nextFloat();
+        float g = rand.nextFloat() / 2f;
+        float b = rand.nextFloat() / 2f;
+        Color randomColor = new Color(r, g, b);
+        return randomColor;
+    }
 }
