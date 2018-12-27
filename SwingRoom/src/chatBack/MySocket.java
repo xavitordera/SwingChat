@@ -23,14 +23,10 @@ public class MySocket {
     BufferedReader reader;
     PrintWriter writer;
     
-    public MySocket(String host, int port) {
-        try {
-            this.socket = new Socket(host, port);
-            this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.writer = new PrintWriter(socket.getOutputStream(), true);
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
+    public MySocket(String host, int port) throws Exception{
+        this.socket = new Socket(host, port);
+        this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        this.writer = new PrintWriter(socket.getOutputStream(), true);
     }
     
     public MySocket(Socket socket) {
@@ -43,13 +39,8 @@ public class MySocket {
         }
     }
     
-    public String readString(){
-        try {
-            return reader.readLine();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
+    public String readString() throws Exception{
+        return reader.readLine();
     }
     
     public void printString(String text) {

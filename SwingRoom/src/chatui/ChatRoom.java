@@ -14,6 +14,14 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import javax.swing.*;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
+
+
+import java.util.*;
+import java.net.*;
+
 
 
 /**
@@ -27,7 +35,8 @@ public class ChatRoom {
     static JFrame      newFrame    = new JFrame();
     static JButton     sendMessageButton;
     static JTextField  messageBox;
-    static JTextArea   chatBox;
+    static JTextPane   chatBox;
+    static JLabel      colorLabel;
     static JTextField  portChooser;
     static JTextField  hostChooser;
     static JTextField  usernameChooser;
@@ -35,7 +44,7 @@ public class ChatRoom {
     
     HashMap<String, Color> clientColors = new HashMap<String, Color>();
     
-    static MySocket socket;
+    static MySocket    socket;
     
 
     public static void main(String[] args) {
@@ -110,14 +119,15 @@ public class ChatRoom {
 
         messageBox = new JTextField(30);
         messageBox.requestFocusInWindow();
+        messageBox.addKeyListener(new SendMessageKeyListener());
 
         sendMessageButton = new JButton("Send Message");
         sendMessageButton.addActionListener(new SendMessageButtonListener());
-
-        chatBox = new JTextArea();
+        
+        chatBox = new JTextPane();
         chatBox.setEditable(false);
         chatBox.setFont(new Font("Serif", Font.PLAIN, 15));
-        chatBox.setLineWrap(true);
+        // chatBox.setLineWrap(true);
 
         mainPanel.add(new JScrollPane(chatBox), BorderLayout.CENTER);
 
@@ -145,24 +155,34 @@ public class ChatRoom {
         newFrame.setVisible(true);
         newFrame.setLocationRelativeTo(null);
     }
+
+    private void appendToChatBox(String line, SimpleAttributeSet keyWord) {
+        StyledDocument doc = chatBox.getStyledDocument();
+        try
+        {
+            doc.insertString(doc.getLength(), line, keyWord );
+        }
+        catch(Exception e) { System.out.println(e); }
+    }
     
-    
+    private void sendMessage() {
+        if (messageBox.getText().length() < 1) {
+            // do nothing
+        } else if (messageBox.getText().equals(".clear")) {
+            chatBox.setText("Cleared all messages\n");
+            messageBox.setText("");
+        } else {
+            String newChatLine = "<" + username + ">:  " + messageBox.getText(); 
+            appendNewMessage(newChatLine);
+            socket.printString(newChatLine);
+            messageBox.setText("");
+        }
+        messageBox.requestFocusInWindow();
+    }    
 
     class SendMessageButtonListener implements ActionListener {
         public void actionPerformed(ActionEvent event) {
-            if (messageBox.getText().length() < 1) {
-                // do nothing
-            } else if (messageBox.getText().equals(".clear")) {
-                chatBox.setText("Cleared all messages\n");
-                messageBox.setText("");
-            } else {
-                String newChatLine = "<" + username + ">:  " + messageBox.getText(); 
-                chatBox.append(newChatLine
-                        + "\n");
-                socket.printString(newChatLine);
-                messageBox.setText("");
-            }
-            messageBox.requestFocusInWindow();
+            sendMessage();
         }
     }
 
@@ -178,7 +198,7 @@ public class ChatRoom {
             port = portChooser.getText();
             
             if (username.length() < 1 || host.length() < 1 || port.length() < 1) {
-                popUpErrorMessage("Please fill in the required fields")
+                popUpErrorMessage("Please fill in the required fields");
             } else {
                 try {
                     createClientSocket(host, port);
@@ -186,13 +206,31 @@ public class ChatRoom {
                     display();
                     startListenning();
                 } catch (Exception e) {
-                    popUpErrorMessage("Please enter the host and the port in the correct format")
+                    popUpErrorMessage("Looks like the data you entered is incorrect, make sure the fields are in the correct format and that a server is listenning to the specified port");
                 }
             }
         }
     }
+
+    class SendMessageKeyListener implements KeyListener {
+        @Override
+        public void keyPressed(KeyEvent e) {
+            if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                sendMessage();
+            }
+        }
+        @Override
+        public void keyReleased(KeyEvent e) {
+            // do nothing
+        }
+        @Override
+        public void keyTyped(KeyEvent e) {
+            // do nothing
+        }   
+
+    }
     
-    private void createClientSocket(String host, String port) {
+    private void createClientSocket(String host, String port) throws Exception {
         int portInt = Integer.parseInt(port);
         socket = new MySocket(host, portInt);
         socket.printString(username);
@@ -202,12 +240,15 @@ public class ChatRoom {
         new Thread(){
             public void run() {
                 String line;
-                while((line = socket.readString()) != null){
-                    appendNewMessage(line);
+                try {
+                    while((line = socket.readString()) != null){
+                        appendNewMessage(line);
+                    }
+                } catch (Exception ex) {
+                    socket.closeReader();
+                    socket.closeSocket();
+                    System.exit(0);
                 }
-                socket.closeReader();
-                socket.closeSocket();
-                System.exit(0);
             }
         }.start();
     }
@@ -223,33 +264,36 @@ public class ChatRoom {
             Color clientColor = clientColors.get(nick);
             if (clientColor != null) {
                 // existing client messages
-                printMessageWithColor(line + "\n", clientColor);
+                printMessageWithColor(line, clientColor);
             } else if (clientColor == null && nick != username) {
                 // new client messages
                 clientColor = getRandomColor();
-                clientsColor.set(nick, clientColor);
-                printMessageWithColor(line + "\n", clientColor);
+                clientColors.put(nick, clientColor);
+                printMessageWithColor(line, clientColor);
             } else {
                 // own messages
-                chatBox.append( line + "\n");        
+                appendToChatBox( line + "\n", null);        
             }
         } else {
             // server messages
-            chatBox.append( line + "\n");        
+            appendToChatBox( line + "\n", null);        
         }
     }
     
     private String getNick(String message) {
         String nick = "";
-        if (message != null)
-            nick = message.split("<")[1].split(">")[0];
+        if (message != null && message.startsWith("<")) {
+            nick = message.substring(1);
+            nick = nick.split(">")[0];
+        }
         return nick;
     }
 
     private void printMessageWithColor(String message, Color color) {
-        chatBox.setForeground(color);
-        chatBox.append(message + "\n")
-        chatBox.setForeground(null);
+        StyledDocument doc = chatBox.getStyledDocument();
+        SimpleAttributeSet keyWord = new SimpleAttributeSet();
+        StyleConstants.setForeground(keyWord, color);
+        appendToChatBox(message + "\n", keyWord);
     }
 
     Random rand = new Random();
