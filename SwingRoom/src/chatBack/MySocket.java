@@ -74,7 +74,7 @@ public class MySocket {
         }
     }
     
-    void closeWriter(){
+    public void closeWriter(){
         try {
             writer.close();
         } catch (Exception e) {
@@ -82,6 +82,17 @@ public class MySocket {
         }
     }
    
+    public boolean isClosed() {
+        return socket.isClosed();
+    }
+
+    public boolean isSocketClosed() throws Exception{
+        return socket.getInputStream().read() == -1;
+    }
+
+    public boolean isConnected() {
+        return socket.isConnected();
+    }
     /*
     void closeAll() {
         closeReader();

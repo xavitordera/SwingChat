@@ -45,6 +45,9 @@ public class ChatRoom {
     HashMap<String, Color> clientColors = new HashMap<String, Color>();
     
     static MySocket    socket;
+    String             username;
+    String             host;
+    String             port;
     
 
     public static void main(String[] args) {
@@ -75,13 +78,20 @@ public class ChatRoom {
 
         // form
         usernameChooser = new JTextField(15);
+        if (username != null) usernameChooser.setText(username);
         JLabel chooseUsernameLabel = new JLabel("Pick a username:");
         hostChooser = new JTextField(30);
+        if (host != null) hostChooser.setText(host);
         JLabel chooseHostLabel = new JLabel("Host:");
         portChooser = new JTextField(5);
+        if (port != null) portChooser.setText(port);
         JLabel choosePortLabel = new JLabel("Port:");
         JButton enterServer = new JButton("Enter Chat Server");
         enterServer.addActionListener(new EnterServerButtonListener());
+
+        usernameChooser.addKeyListener(new EnterServerKeyListener());
+        hostChooser.addKeyListener(new EnterServerKeyListener());
+        portChooser.addKeyListener(new EnterServerKeyListener());
 
         GridBagConstraints preRightConstraints = new GridBagConstraints();
         preRightConstraints.insets = new Insets(0, 0, 0, 10);
@@ -186,30 +196,56 @@ public class ChatRoom {
         }
     }
 
-    String username;
-    String host;
-    String port;
+    void enterServer() {
+        username = usernameChooser.getText();
+        host = hostChooser.getText();
+        port = portChooser.getText();
+        
+        if (username.length() < 1 || host.length() < 1 || port.length() < 1) {
+            popUpErrorMessage("Please fill in the required fields");
+        } else {
+            try {
+                createClientSocket(host, port);
+                preFrame.setVisible(false);
+                display();
+                startListenning();
+            } catch (Exception e) {
+                popUpErrorMessage("Looks like the data you entered is incorrect, make sure the fields are in the correct format and that a server is listenning to the specified port");
+            }
+        }
+    }
 
     class EnterServerButtonListener implements ActionListener {
         public void actionPerformed(ActionEvent event) {
-            
-            username = usernameChooser.getText();
-            host = hostChooser.getText();
-            port = portChooser.getText();
-            
-            if (username.length() < 1 || host.length() < 1 || port.length() < 1) {
-                popUpErrorMessage("Please fill in the required fields");
-            } else {
-                try {
-                    createClientSocket(host, port);
-                    preFrame.setVisible(false);
-                    display();
-                    startListenning();
-                } catch (Exception e) {
-                    popUpErrorMessage("Looks like the data you entered is incorrect, make sure the fields are in the correct format and that a server is listenning to the specified port");
-                }
+            enterServer();            
+        }
+    }
+
+    class EnterServerKeyListener implements KeyListener {
+        @Override
+        public void keyPressed(KeyEvent e) {
+            if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                enterServer();
             }
         }
+        @Override
+        public void keyReleased(KeyEvent e) {
+            // do nothing
+        }
+        @Override
+        public void keyTyped(KeyEvent e) {
+            // do nothing
+        }   
+    }
+
+    void nickAlreadyUsed() {
+        // go back and close the connection 
+        preDisplay();
+        usernameChooser.setBorder(BorderFactory.createLineBorder(Color.RED, 1));
+        popUpErrorMessage("Nick already used");
+        socket.closeWriter();
+        socket.closeReader();
+        socket.closeSocket();
     }
 
     class SendMessageKeyListener implements KeyListener {
@@ -227,7 +263,6 @@ public class ChatRoom {
         public void keyTyped(KeyEvent e) {
             // do nothing
         }   
-
     }
     
     private void createClientSocket(String host, String port) throws Exception {
@@ -236,7 +271,7 @@ public class ChatRoom {
         socket.printString(username);
     }
     
-    private void startListenning(){
+    private void startListenning() {
         new Thread(){
             public void run() {
                 String line;
@@ -244,6 +279,8 @@ public class ChatRoom {
                     while((line = socket.readString()) != null){
                         appendNewMessage(line);
                     }
+                    // if the server unexpectedly closes connection is that nick is already used
+                    nickAlreadyUsed();
                 } catch (Exception ex) {
                     socket.closeReader();
                     socket.closeSocket();
@@ -290,7 +327,6 @@ public class ChatRoom {
     }
 
     private void printMessageWithColor(String message, Color color) {
-        StyledDocument doc = chatBox.getStyledDocument();
         SimpleAttributeSet keyWord = new SimpleAttributeSet();
         StyleConstants.setForeground(keyWord, color);
         appendToChatBox(message + "\n", keyWord);

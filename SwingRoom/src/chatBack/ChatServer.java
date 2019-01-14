@@ -14,13 +14,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-
 /**
  *
  * @author lsadusr11
  */
 public class ChatServer {
-     public static void main(String[] args) {
+    static ServerHelper helper = ServerHelper.getInstance(); 
+    public static void main(String[] args) {
         if (args.length < 1 || args == null) {
             System.out.println("Looks like you haven't entered a port correctly");
             return;
@@ -33,20 +33,25 @@ public class ChatServer {
              return;
         }
         final MyServerSocket serverSocket = new MyServerSocket(port);
-        final ConcurrentHashMap<String, MySocket> dictionary;
-        dictionary = new ConcurrentHashMap<>();
+
         System.out.println("Server listenning at " + port);
         
         while(true){
             final MySocket socket = serverSocket.accept();
             try {
                 final String nick = socket.readString();
-            
-                dictionary.put(nick, socket);
-                final Collection<MySocket> collection = dictionary.values();
+                System.out.println(nick);
+
+                if (ServerHelper.isNickUsed(nick)) {
+                    System.out.println(nick + "is used");
+                    socket.closeWriter();
+                    socket.closeReader();
+                    socket.closeSocket();
+                } else {
                 
+                helper.addNewUser(nick, socket);
                 System.out.println("New user "+ nick);
-                for(MySocket s:collection){
+                for(MySocket s: helper.getClientSocketsCollection()){
                     if(s != socket){
                         s.printString(nick + " joined the room, show him some love");
                     }
@@ -57,7 +62,7 @@ public class ChatServer {
                         String line;
                         try {
                             while((line = socket.readString()) != null ){
-                                for(MySocket s:collection){
+                                for(MySocket s:helper.getClientSocketsCollection()){
                                     if(s != socket){
                                         s.printString(line);
                                     }
@@ -67,7 +72,7 @@ public class ChatServer {
                             // do nothing
                         }
                         
-                        for(MySocket s:collection){
+                        for(MySocket s:helper.getClientSocketsCollection()){
                             if(s != socket){
                                 s.printString(nick + " left the room");
                             }
@@ -79,7 +84,7 @@ public class ChatServer {
                         socket.closeSocket();
                     }
                 }.start();
-            } catch (Exception ex) {
+            }} catch (Exception ex) {
                 System.out.println("Something went wrong");
                 socket.closeSocket();
                 break;
